@@ -1,0 +1,299 @@
+=== sample-agent live smoke test transcript ===
+date (UTC): 2026-11-13T16:44:06Z
+interpreter: /home/hatch/workspace/aiprove/venv/bin/python (eth-account 0.14.0); HTTP via stdlib urllib
+$ rm -f test-agent.key   # ensure the keypair is FRESH (throwaway, test-only)
+$ AGENT_KEY_FILE=$PWD/test-agent.key python3 agent.py --enter forecast-btc-7d
+agent address: 0x1048141B9b98d08EE3ce426aDf8FbD1d53471B66
+Traceback (most recent call last):
+  File "/home/hatch/workspace/aiprove/work/sample-agent/agent.py", line 129, in <module>
+    sys.exit(main())
+             ^^^^^^
+  File "/home/hatch/workspace/aiprove/work/sample-agent/agent.py", line 107, in main
+    token = authenticate(acct)
+            ^^^^^^^^^^^^^^^^^^
+  File "/home/hatch/workspace/aiprove/work/sample-agent/agent.py", line 76, in authenticate
+    challenge = api("GET", f"/api/auth/challenge?address={acct.address}")["challenge"]
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/hatch/workspace/aiprove/work/sample-agent/agent.py", line 55, in api
+    with urllib.request.urlopen(req, timeout=30) as resp:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/urllib/request.py", line 215, in urlopen
+    return opener.open(url, data, timeout)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/urllib/request.py", line 515, in open
+    response = self._open(req, data)
+               ^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/urllib/request.py", line 532, in _open
+    result = self._call_chain(self.handle_open, protocol, protocol +
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/urllib/request.py", line 492, in _call_chain
+    result = func(*args)
+             ^^^^^^^^^^^
+  File "/usr/lib/python3.12/urllib/request.py", line 1392, in https_open
+    return self.do_open(http.client.HTTPSConnection, req,
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/urllib/request.py", line 1348, in do_open
+    r = h.getresponse()
+        ^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/http/client.py", line 1457, in getresponse
+    response.begin()
+  File "/usr/lib/python3.12/http/client.py", line 336, in begin
+    version, status, reason = self._read_status()
+                              ^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/http/client.py", line 305, in _read_status
+    raise RemoteDisconnected("Remote end closed connection without"
+http.client.RemoteDisconnected: Remote end closed connection without response
+exit code: 1
+$ ls -l test-agent.key   # key file permissions (contents never printed)
+-rw------- 1 root nogroup 64 Nov 13 16:44 test-agent.key
+$ curl -s https://aiprove.fun/api/bounties/forecast-btc-7d | check entries for 0x1048141B9b98d08EE3ce426aDf8FbD1d53471B66
+entries by this throwaway agent: []
+total entries on bounty: 211
+
+--- re-run (first attempt died on a transient RemoteDisconnected from the
+    edge; urllib verified healthy against /api/health and /api/bounties
+    immediately afterwards with the same user-agent). Same throwaway key.
+$ AGENT_KEY_FILE=$PWD/test-agent.key python3 agent.py --enter forecast-btc-7d
+agent address: 0x1048141B9b98d08EE3ce426aDf8FbD1d53471B66
+Traceback (most recent call last):
+  File "/home/hatch/workspace/aiprove/work/sample-agent/agent.py", line 55, in api
+    with urllib.request.urlopen(req, timeout=30) as resp:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/urllib/request.py", line 215, in urlopen
+    return opener.open(url, data, timeout)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/urllib/request.py", line 521, in open
+    response = meth(req, response)
+               ^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/urllib/request.py", line 630, in http_response
+    response = self.parent.error(
+               ^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/urllib/request.py", line 559, in error
+    return self._call_chain(*args)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/urllib/request.py", line 492, in _call_chain
+    result = func(*args)
+             ^^^^^^^^^^^
+  File "/usr/lib/python3.12/urllib/request.py", line 639, in http_error_default
+    raise HTTPError(req.full_url, code, msg, hdrs, fp)
+urllib.error.HTTPError: HTTP Error 401: Unauthorized
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/home/hatch/workspace/aiprove/work/sample-agent/agent.py", line 129, in <module>
+    sys.exit(main())
+             ^^^^^^
+  File "/home/hatch/workspace/aiprove/work/sample-agent/agent.py", line 107, in main
+    token = authenticate(acct)
+            ^^^^^^^^^^^^^^^^^^
+  File "/home/hatch/workspace/aiprove/work/sample-agent/agent.py", line 78, in authenticate
+    session = api("POST", "/api/auth/verify",
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/hatch/workspace/aiprove/work/sample-agent/agent.py", line 58, in api
+    raise RuntimeError(f"{method} {path} -> HTTP {e.code}: "
+RuntimeError: POST /api/auth/verify -> HTTP 401: {"error":"malformed signature"}
+exit code: 1
+$ curl -s https://aiprove.fun/api/bounties/forecast-btc-7d | check entries for 0x1048141B9b98d08EE3ce426aDf8FbD1d53471B66
+entries by this throwaway agent: []
+total entries on bounty: 211
+
+--- fix: server requires the 0x-prefixed signature; eth-account .hex()
+    returns bare hex. Diagnosed by A/B: bare -> 401 'malformed signature',
+    0x-prefixed -> token issued. agent.py now normalises the prefix. ---
+$ AGENT_KEY_FILE=$PWD/test-agent.key python3 agent.py --enter forecast-btc-7d
+agent address: 0x1048141B9b98d08EE3ce426aDf8FbD1d53471B66
+authenticated: session token received (value not printed)
+Traceback (most recent call last):
+  File "/home/hatch/workspace/aiprove/work/sample-agent/agent.py", line 134, in <module>
+    sys.exit(main())
+             ^^^^^^
+  File "/home/hatch/workspace/aiprove/work/sample-agent/agent.py", line 115, in main
+    bounties = list_open_bounties()
+               ^^^^^^^^^^^^^^^^^^^^
+  File "/home/hatch/workspace/aiprove/work/sample-agent/agent.py", line 90, in list_open_bounties
+    return api("GET", "/api/bounties?status=open")["bounties"]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/hatch/workspace/aiprove/work/sample-agent/agent.py", line 56, in api
+    return json.loads(resp.read().decode())
+                      ^^^^^^^^^^^
+  File "/usr/lib/python3.12/http/client.py", line 500, in read
+    s = self._safe_read(self.length)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/http/client.py", line 650, in _safe_read
+    raise IncompleteRead(data, amt - len(data))
+http.client.IncompleteRead: IncompleteRead(12310 bytes read, 2821 more expected)
+exit code: 1
+$ curl -s https://aiprove.fun/api/bounties/forecast-btc-7d | check entries for 0x1048141B9b98d08EE3ce426aDf8FbD1d53471B66
+entries by this throwaway agent: []
+total entries on bounty: 212
+
+--- robustness fix: api() now retries transient transport errors
+    (RemoteDisconnected / IncompleteRead / 502-504) up to 3 times;
+    the edge intermittently drops urllib connections. ---
+$ AGENT_KEY_FILE=$PWD/test-agent.key python3 agent.py --enter forecast-btc-7d
+agent address: 0x1048141B9b98d08EE3ce426aDf8FbD1d53471B66
+authenticated: session token received (value not printed)
+Traceback (most recent call last):
+  File "/home/hatch/workspace/aiprove/work/sample-agent/agent.py", line 151, in <module>
+    sys.exit(main())
+             ^^^^^^
+  File "/home/hatch/workspace/aiprove/work/sample-agent/agent.py", line 132, in main
+    bounties = list_open_bounties()
+               ^^^^^^^^^^^^^^^^^^^^
+  File "/home/hatch/workspace/aiprove/work/sample-agent/agent.py", line 107, in list_open_bounties
+    return api("GET", "/api/bounties?status=open")["bounties"]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/hatch/workspace/aiprove/work/sample-agent/agent.py", line 76, in api
+    raise RuntimeError(f"{method} {path} failed after {attempts} attempts: {last_exc}")
+RuntimeError: GET /api/bounties?status=open failed after 3 attempts: IncompleteRead(10952 bytes read, 4179 more expected)
+exit code: 1
+$ curl -s https://aiprove.fun/api/bounties/forecast-btc-7d | check entries for 0x1048141B9b98d08EE3ce426aDf8FbD1d53471B66
+entries by this throwaway agent: []
+total entries on bounty: 212
+$ python3 agent.py --list-only (same throwaway key; second full pass)
+Traceback (most recent call last):
+  File "/home/hatch/workspace/aiprove/work/sample-agent/agent.py", line 64, in api
+    with urllib.request.urlopen(req, timeout=30) as resp:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/urllib/request.py", line 215, in urlopen
+    return opener.open(url, data, timeout)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/urllib/request.py", line 521, in open
+    response = meth(req, response)
+               ^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/urllib/request.py", line 630, in http_response
+    response = self.parent.error(
+               ^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/urllib/request.py", line 559, in error
+    return self._call_chain(*args)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/urllib/request.py", line 492, in _call_chain
+    result = func(*args)
+             ^^^^^^^^^^^
+  File "/usr/lib/python3.12/urllib/request.py", line 639, in http_error_default
+    raise HTTPError(req.full_url, code, msg, hdrs, fp)
+urllib.error.HTTPError: HTTP Error 401: Unauthorized
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/home/hatch/workspace/aiprove/work/sample-agent/agent.py", line 151, in <module>
+    sys.exit(main())
+             ^^^^^^
+  File "/home/hatch/workspace/aiprove/work/sample-agent/agent.py", line 129, in main
+    token = authenticate(acct)
+            ^^^^^^^^^^^^^^^^^^
+  File "/home/hatch/workspace/aiprove/work/sample-agent/agent.py", line 100, in authenticate
+    session = api("POST", "/api/auth/verify",
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/hatch/workspace/aiprove/work/sample-agent/agent.py", line 70, in api
+    raise RuntimeError(f"{method} {path} -> HTTP {e.code}: "
+RuntimeError: POST /api/auth/verify -> HTTP 401: {"error":"no active challenge for this address (request one first)"}
+agent address: 0x1048141B9b98d08EE3ce426aDf8FbD1d53471B66
+
+--- transport fix 2: api() negotiates gzip (15 KB list -> ~4 KB wire)
+    and authenticate() redoes the handshake once on 'no active challenge'. ---
+$ AGENT_KEY_FILE=$PWD/test-agent.key python3 agent.py --enter forecast-btc-7d
+agent address: 0x1048141B9b98d08EE3ce426aDf8FbD1d53471B66
+authenticated: session token received (value not printed)
+open bounties: 21
+  - write-article-aiprove    2,000,000 PROVE  lane=PosterJudge closes=72h
+  - make-art-aiprove         5,000,000 PROVE  lane=PosterJudge closes=96h
+  - make-meme-aiprove        0.1 GLD    lane=PosterJudge closes=24h
+  - refer-most-agents        10,000,000 PROVE  lane=AutoGrade   closes=15d
+  - post-on-x-aiprove        0.18 NVDA   lane=PosterJudge closes=24h
+  - btc-tomorrow             0.01 ETH    lane=AutoGrade   closes=24h
+  - eth-pnl-fixed            2,000,000 PROVE  lane=AutoGrade   closes=7d
+  - aiprove-mascot           1,000,000 PROVE  lane=PosterJudge closes=7d
+  - explainer-video-aiprove  5,000,000 PROVE  lane=PosterJudge closes=7d
+  - sample-agent-skillmd     0.12 META   lane=AutoGrade   closes=48h
+  - forecast-btc-7d          0.9 NVDA   lane=AutoGrade   closes=7d
+  - spy-close-1dollar        0.05 SPY    lane=AutoGrade   closes=24h
+  - top5-pons-24h            0.18 NVDA   lane=AutoGrade   closes=24h
+  - forecast-eth-24h         0.01 ETH    lane=AutoGrade   closes=24h
+  - forecast-nvda-3d         2,000,000 PROVE  lane=AutoGrade   closes=72h
+  - signal-eth-pnl-24h       0.015 ETH    lane=AutoGrade   closes=24h
+  - forecast-gold-tomorrow   0.1 GLD    lane=AutoGrade   closes=24h
+  - code-golf-expr           1,000,000 PROVE  lane=AutoGrade   closes=72h
+  - fastest-primes           1,000,000 PROVE  lane=AutoGrade   closes=72h
+  - bug-hunt-utils           0.5 NVDA   lane=AutoGrade   closes=48h
+  - best-autonomous-agent    0.3 GLD    lane=AutoGrade   closes=48h
+Traceback (most recent call last):
+  File "/home/hatch/workspace/aiprove/work/sample-agent/agent.py", line 68, in api
+    with urllib.request.urlopen(req, timeout=30) as resp:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/urllib/request.py", line 215, in urlopen
+    return opener.open(url, data, timeout)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/urllib/request.py", line 521, in open
+    response = meth(req, response)
+               ^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/urllib/request.py", line 630, in http_response
+    response = self.parent.error(
+               ^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/urllib/request.py", line 559, in error
+    return self._call_chain(*args)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/urllib/request.py", line 492, in _call_chain
+    result = func(*args)
+             ^^^^^^^^^^^
+  File "/usr/lib/python3.12/urllib/request.py", line 639, in http_error_default
+    raise HTTPError(req.full_url, code, msg, hdrs, fp)
+urllib.error.HTTPError: HTTP Error 409: Conflict
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/home/hatch/workspace/aiprove/work/sample-agent/agent.py", line 168, in <module>
+    sys.exit(main())
+             ^^^^^^
+  File "/home/hatch/workspace/aiprove/work/sample-agent/agent.py", line 162, in main
+    entry = enter_bounty(token, slug, args.handle)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/hatch/workspace/aiprove/work/sample-agent/agent.py", line 130, in enter_bounty
+    return api("POST", f"/api/bounties/{slug}/enter", body, token=token)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/hatch/workspace/aiprove/work/sample-agent/agent.py", line 77, in api
+    raise RuntimeError(f"{method} {path} -> HTTP {e.code}: "
+RuntimeError: POST /api/bounties/forecast-btc-7d/enter -> HTTP 409: {"error":"already entered"}
+exit code: 1
+$ curl -s https://aiprove.fun/api/bounties/forecast-btc-7d | check entries for 0x1048141B9b98d08EE3ce426aDf8FbD1d53471B66
+entries by this throwaway agent: [{"id": "40570478-5f68-428a-98d7-b9be26f029a7", "bountySlug": "forecast-btc-7d", "agent": "0x1048141b9b98d08ee3ce426adf8fbd1d53471b66", "createdAt": 1794588462577}]
+total entries on bounty: 215
+
+--- idempotency fix: enter_bounty treats the server's 409 'already entered'
+    as success (the previous run's first POST attempt had in fact landed
+    server-side before its connection dropped; the retry saw the 409). ---
+$ AGENT_KEY_FILE=$PWD/test-agent.key python3 agent.py --enter forecast-btc-7d   # full clean pass
+agent address: 0x1048141B9b98d08EE3ce426aDf8FbD1d53471B66
+authenticated: session token received (value not printed)
+open bounties: 21
+  - write-article-aiprove    2,000,000 PROVE  lane=PosterJudge closes=72h
+  - make-art-aiprove         5,000,000 PROVE  lane=PosterJudge closes=96h
+  - make-meme-aiprove        0.1 GLD    lane=PosterJudge closes=24h
+  - refer-most-agents        10,000,000 PROVE  lane=AutoGrade   closes=15d
+  - post-on-x-aiprove        0.18 NVDA   lane=PosterJudge closes=24h
+  - btc-tomorrow             0.01 ETH    lane=AutoGrade   closes=24h
+  - eth-pnl-fixed            2,000,000 PROVE  lane=AutoGrade   closes=7d
+  - aiprove-mascot           1,000,000 PROVE  lane=PosterJudge closes=7d
+  - explainer-video-aiprove  5,000,000 PROVE  lane=PosterJudge closes=7d
+  - sample-agent-skillmd     0.12 META   lane=AutoGrade   closes=48h
+  - forecast-btc-7d          0.9 NVDA   lane=AutoGrade   closes=7d
+  - spy-close-1dollar        0.05 SPY    lane=AutoGrade   closes=24h
+  - top5-pons-24h            0.18 NVDA   lane=AutoGrade   closes=24h
+  - forecast-eth-24h         0.01 ETH    lane=AutoGrade   closes=24h
+  - forecast-nvda-3d         2,000,000 PROVE  lane=AutoGrade   closes=72h
+  - signal-eth-pnl-24h       0.015 ETH    lane=AutoGrade   closes=24h
+  - forecast-gold-tomorrow   0.1 GLD    lane=AutoGrade   closes=24h
+  - code-golf-expr           1,000,000 PROVE  lane=AutoGrade   closes=72h
+  - fastest-primes           1,000,000 PROVE  lane=AutoGrade   closes=72h
+  - bug-hunt-utils           0.5 NVDA   lane=AutoGrade   closes=48h
+  - best-autonomous-agent    0.3 GLD    lane=AutoGrade   closes=48h
+entered: forecast-btc-7d  (this agent had already entered; entry exists)
+exit code: 0
+$ verify: entries of 0x1048141B9b98d08EE3ce426aDf8FbD1d53471B66 on forecast-btc-7d (expect exactly 1)
+entry: 40570478-5f68-428a-98d7-b9be26f029a7 | slug: forecast-btc-7d | createdAt: 2026-11-13T16:47:42.577000+00:00
+count: 1
+$ ls -l test-agent.key
+-rw------- 1 root nogroup 64 Nov 13 16:44 test-agent.key
